@@ -145,11 +145,11 @@ Module Framework.
 
   (**
      Now we lay the basis for our Secure Translation Validation Approach.
-     Note that this is independent of the compiler, so that the compiler itself is outside the TCB.
+     Note that this is independent of the compiler, so that the compiler itself is outside the TCB (otherwise one could analyse the compiler directly).
   *)
   Definition STV_RSP {l l' : language} (C__T : ctx l') (S : partial l) (T : partial l') : Prop := forall π, (safety π) -> (forall C__S, sat (C__S[S] : l) π) -> (sat (C__T[T] : l') π).
   Definition STV_RSP' {l l' : language} (C__T : ctx l') (S : partial l) (T : partial l') := (forall π, (safety π) -> (nsat (C__T[T] : l') π -> (exists C__S, nsat (C__S[S] : l) π))).
-  Definition STV_RSC {l l' : language} (C__T : ctx l') (S : partial l) (T : partial l') : Prop := (forall t, (beh (C__T[T] : l') t) -> (forall m, (m ≤ t) -> (exists bt t', beh ((bt C__T)[S] : l) t' /\ m ≤ t'))).
+  Definition STV_RSC {l l' : language} (C__T : ctx l') (S : partial l) (T : partial l') : Prop := (forall t, (beh (C__T[T] : l') t) -> (forall m, (m ≤ t) -> (exists C__S t', beh (C__S[S] : l) t' /\ m ≤ t'))).
 
   Theorem STV_RSP_iff_RSP : forall (src : language) (trg : language) (comp : partial src -> partial trg), (forall C__T S, STV_RSP C__T S (comp S)) <-> RSP comp.
   Proof.
@@ -157,6 +157,14 @@ Module Framework.
     split.
     - intros stv π Sπ S sat__S C__T. apply (stv C__T S π Sπ sat__S).
     - intros rsp C__T S π Sπ sat__S. apply (rsp π Sπ S sat__S C__T).
+  Qed.
+
+  Theorem STV_RSC_iff_RSC : forall (src : language) (trg : language) (comp : partial src -> partial trg), (forall C__T S, STV_RSC C__T S (comp S)) <-> RSC comp.
+  Proof.
+    unfold STV_RSC. unfold RSC.
+    split.
+    - intros stv S C__T t beh__T m m_pref_t. apply (stv C__T S t beh__T m m_pref_t).
+    - intros rsc C__T S t beh__T m m_pref_t. apply (rsc S C__T t beh__T m m_pref_t).
   Qed.
 
   Lemma STV_RSP_contra : forall (src : language) (trg : language) (C__T : ctx trg) (S : partial src) (T : partial trg), STV_RSP C__T S T <-> STV_RSP' C__T S T.
@@ -180,9 +188,9 @@ Module Framework.
       apply not_all_ex_not in nsat__T.
       destruct nsat__T as [t nbeh__T]. eapply imply_to_and in nbeh__T. destruct nbeh__T as [beh__T nπ].
       destruct (Sπ t nπ) as [m [pre H0]].
-      specialize (rsc t beh__T m pre). destruct rsc as [bt [t' [beh__S' pre']]].
+      specialize (rsc t beh__T m pre). destruct rsc as [C__S [t' [beh__S' pre']]].
       unfold nsat. unfold sat.
-      exists (bt C__T).
+      exists C__S.
       apply ex_not_not_all.
       exists t'.
       unfold not.
@@ -202,7 +210,18 @@ Module Framework.
         * apply ex_not_not_all. exists t. unfold not. intros H. apply H in beh__T. all: assumption.
         * apply not_all_ex_not in H0. destruct H0 as [t' H1].
           unfold not in H1. apply imply_to_and in H1. destruct H1 as [beh__S npre]. eapply NNPP in npre.
-          exists (fun _ => C__S), t'. eauto.
+          exists C__S, t'. eauto.
+  Qed.
+
+  (* This definition hints the proof technique of backtranslation *)
+  Definition STV_RSC_bt {l l' : language} (C__T : ctx l') (S : partial l) (T : partial l') : Prop := (forall t, (beh (C__T[T] : l') t) -> (forall m, (m ≤ t) -> (exists bt t', beh ((bt C__T)[S] : l) t' /\ m ≤ t'))).
+
+  Theorem STV_RSC_iff_STV_RSC_bt : forall (src : language) (trg : language) (C__T : ctx trg) (S : partial src) (T : partial trg), STV_RSC C__T S T <-> STV_RSC_bt C__T S T.
+  Proof.
+    unfold STV_RSC. unfold STV_RSC_bt.
+    split.
+    - intros rsc t beh__T m m_pref_t. specialize (rsc t beh__T m m_pref_t). destruct rsc as [C__S [t']]. exists (fun _ => C__S). exists t'. assumption.
+    - intros rsc_bt t beh__T m m_pref_t. specialize (rsc_bt t beh__T m m_pref_t). destruct rsc_bt as [bt [t']]. exists (bt C__T). exists t'. assumption.
   Qed.
 
   (** Now we define our notion of STV analysis and prove that it entails STV_RSP *)
@@ -222,8 +241,13 @@ Module Framework.
   (**
      Keep in mind that the typical application of is this is a JIT compiler situation, which also needs to be fast.
 
-     FIRST PRINCIPLE: the naturally arising principle of abstract STV, however -- depending on the usage -- a family of abstract STV_RSC principles may be more useful.
-   *)
+     FIRST PRINCIPLE:
+           * the naturally arising principle of abstract STV, however -- depending on the usage -- a family of abstract STV_RSC principles may be more useful.
+
+     PROBLEMS:
+           * one must be able to analyse source contexts -- hard for complete analyses
+           * same for source partial programs
+  *)
   Definition aSTV_RSC {src trg asrc atrg : language}
              (α__S : analysis src asrc) (α__T : analysis trg atrg)
              (C__T : ctx trg) (S : partial src) (T : partial trg) : Prop :=
@@ -292,10 +316,12 @@ Module Framework.
   Qed.
 
   (**
-     SECOND PRINCIPLE: the requirements for the complete source analysis to be (1) usable on source contexts alone (2) linear, are quite strong: think about testing at source level.
-     The following principle (Whole Non-linear Source Analysis) is useful when the two requirements above don't hold, and the program loader has access to both the source program and the target context must be manipulated directly at load time!
+     SECOND PRINCIPLE:
+            the requirements for the complete source analysis to be (1) usable on source contexts alone (2) linear, are quite strong: think about testing at source level.
+            The following principle (Whole Non-linear Source Analysis) is useful when the two requirements above don't hold,
+            and the program loader has access to both the source program and the target context must be manipulated directly at load time!
 
-Of course, it can be made stronger by moving bt out of the forall t quantifier (TIWNSA).
+            Of course, it can be made stronger by moving bt out of the forall t quantifier (TIWNSA).
 
      Example usage: JIT compiler, tests at source, sound analysis at target.
    *)
