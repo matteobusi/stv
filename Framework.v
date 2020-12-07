@@ -6,6 +6,8 @@ Require Classical_Prop.
 
 Require ClassicUtils.
 
+Require Bool.
+
 (** This module defines the minimal framework for STV
     in the case of finite traces and some of its basic properties *)
 Module Framework.
@@ -401,7 +403,7 @@ Module Framework.
     assumption.
   Qed.
 
-    (* Trivially *)
+  (* Trivially *)
   Corollary aSTV_RSC__TIWNSA_then_STV_RSP :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
@@ -415,7 +417,7 @@ Module Framework.
   Qed.
 
   (* Also the following holds: *)
-  Theorem aSTV_RSC__WNSA_then_aSTV_RSC :
+  Theorem aSTV_RSC__WNSA_iff_aSTV_RSC :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
       (sound α__T /\ complete α__S /\ llinear α__S /\ llinear α__T ->
@@ -429,19 +431,96 @@ Module Framework.
   Qed.
 
   (** Finally, we can write our secure translation validation algorithm and prove it correct *)
-  (* Inductive STV_RESULT := MAYBE_UNSAFE | SAFE. *)
+  Inductive STV_RESULT := MAYBE_UNSAFE | SAFE.
 
   (* Require Import Coq.Logic.Decidable. *)
   (* Axiom deceq : decidable (). *)
 
   (** This is pseudo-code for a possibile STV algorithm. *)
-  (*
-        fun safe_to_run (C__T : ctx trg) (aS : partial asrc) (aT : partial trg) :=
-            if beh ((actx C__T)[aT] : atrg) <= beh ((actx (bt C__T))[aS] : asrc) then
-               (SAFE, ⊥)
-            else
-               (MAYBE_UNSAFE, bt C__T)
-  *)
+  Check beh.
 
+  (* Assume that a procedure for deciding set inclusion exists *)
+  Axiom subseteq : (trace -> Prop) -> (trace -> Prop) -> bool.
+  (* And that it is actually good for deciding *)
+  Axiom subseteq_then_incl : forall p p', subseteq p p' = true -> (forall t, p t -> p' t).
+
+  Definition safe_to_run
+             {src trg asrc atrg : language} (* Languages *)
+             {α__S : analysis src asrc}  (* Analysis at the source *)
+             {α__T : analysis trg atrg} (* Analysis at the target *)
+             (pbt : (ctx trg) -> option (ctx src)) (* Backtranslation from abstract target ctx to abstract source ctx *)
+             (C__T : ctx trg) (S : partial src) (T : partial trg) : STV_RESULT * (option (ctx src)) :=
+    match pbt C__T with
+      | None => (MAYBE_UNSAFE, None)
+      | Some C__S =>
+        if subseteq (beh ((actx C__T) [apar T] : atrg)) (beh (awhole (C__S [S] : src))) then
+          (SAFE, None)
+        else
+          (MAYBE_UNSAFE, Some C__S)
+    end.
+
+  (* Lemma some_and_subseteq_safe : *)
+  (*   forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *) *)
+  (*     (α__S : analysis src asrc) (α__T : analysis trg atrg) (* Analyses *) *)
+  (*     (bt : (ctx atrg) -> option (ctx src)) (* Backtranslation from abstract target ctx to abstract source ctx *) *)
+  (*     (aC__T : ctx atrg) (S : partial src) (T : partial trg), *)
+  (*     ( *)
+  (*       (exists C__S, bt aC__T = Some C__S) -> (safe_to_run bt aC__T S T) = (SAFE, None) *)
+  (*     ). *)
+  (* Proof. *)
+  (*   intros. *)
+  (*   destruct H as [C__S H']. *)
+  (*   case (bt aC__T). *)
+  (*   - intros. simpl in *. lazy. simpl. safe_to_run. simpl in *. *)
+
+  Lemma safe_from_subseteq :
+    forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
+      (α__S : analysis src asrc) (α__T : analysis trg atrg) (* Analyses *)
+      (pbt : (ctx trg) -> option (ctx src)) (* Backtranslation from abstract target ctx to abstract source ctx *)
+      (C__T : ctx trg) (S : partial src) (T : partial trg),
+      (
+        (safe_to_run pbt C__T S T) = (SAFE, None) ->
+        exists C__S, (pbt C__T) = Some C__S /\ subseteq (beh ((actx C__T) [apar T] : atrg)) (beh (awhole (C__S [S] : src))) = true
+      ).
+  Proof.
+    intros src asrc trg atrg α__S α__T pbt C__T S T H.
+    remember (pbt C__T) as optC__S.
+    unfold safe_to_run in H.
+    destruct optC__S.
+    - exists c. rewrite <- HeqoptC__S in H.
+      remember (subseteq (beh ((actx C__T) [apar T]: atrg)) (beh (awhole (c [S]: src)))) as eq.
+      destruct eq. auto. inversion H.
+    - rewrite <- HeqoptC__S in H. inversion H.
+  Qed.
+
+  (* Our nicest theorem now :) *)
+  Theorem safe_then_aSTV__WNSATI :
+    forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
+      (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
+       (forall (pbt : (ctx trg) -> option (ctx src)) (C__T : ctx trg) (S : partial src) (T : partial trg),
+           safe_to_run pbt C__T S T = (SAFE, None) -> aSTV_RSC__TIWNSA α__S α__T C__T S T).
+  Proof.
+    intros src asrc trg atrg α__S α__T pbt C__T S T H__str.
+    apply (safe_from_subseteq src asrc trg atrg α__S α__T pbt C__T S T) in H__str.
+    destruct H__str as [C__S [bt__CS H__se]].
+    specialize (subseteq_then_incl (beh (actx C__T [apar T]: atrg)) (beh (awhole (C__S [S]: src)))).
+    intro H__tmp.
+    rewrite -> H__se in H__tmp.
+    exists (fun _ => C__S).
+    auto.
+  Qed.
+
+  Corollary safe_then_STV__RSP :
+    forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
+      (α__S : analysis src asrc) (α__T : analysis trg atrg) (* Analyses *)
+      (comp : partial src -> partial trg), (* The compiler *)
+      sound α__T /\ complete α__S /\ llinear α__T ->
+       (forall (pbt : (ctx trg) -> option (ctx src)) (C__T : ctx trg) (S : partial src),
+           safe_to_run pbt C__T S (comp S) = (SAFE, None) -> STV_RSP C__T S (comp S)).
+  Proof.
+    intros src asrc trg atrg α__S α__T comp H__α pbt C__T S H__str.
+    apply (safe_then_aSTV__WNSATI src asrc trg atrg α__S α__T pbt C__T S (comp S)) in H__str.
+    apply (aSTV_RSC__TIWNSA_then_STV_RSP src asrc trg atrg α__S α__T H__α) in H__str.
+    assumption.
+  Qed.
 End Framework.
-
