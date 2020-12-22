@@ -88,7 +88,7 @@ Module Framework.
   Definition sat { l : language } (W : whole l) (π : prop) := forall t, (beh W t) -> (π t).
   Definition nsat { l : language } (W : whole l) (π : prop) := not (sat W π).
 
-  (** Robust safety property preservation principle (RSP) *)
+  (** Robust safety property preservation principle (RSP) -- just restating results by Abate et al. at CSF19 see https://github.com/secure-compilation/exploring-robust-property-preservation  *)
   Definition safety (π : prop) := forall t, not(π t) -> (exists m, m ≤ t /\ (forall t', m ≤ t' -> not(π t'))).
 
   Definition RSP {src trg : language} (comp : partial src -> partial trg) : Prop := forall π, (safety π) -> (forall S, (forall C__S, sat (C__S[S] : src) π) -> (forall C__T, sat (C__T[comp S] : trg) π)).
@@ -142,10 +142,10 @@ Module Framework.
           unfold not in H1. apply imply_to_and in H1. destruct H1 as [beh__S npre]. eapply NNPP in npre.
           exists C__S, t'. eauto.
   Qed.
-
-  (** Classical STV: Show abstract RSC and get it in the concrete. *)
+  (** Restatement ends here *)
 
   (**
+     Classical STV: Show abstract RSC and get it in the concrete. 
      Now we lay the basis for our Secure Translation Validation Approach.
      Note that this is independent of the compiler, so that the compiler itself is outside the TCB (otherwise one could analyse the compiler directly).
   *)
