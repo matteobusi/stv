@@ -1,4 +1,10 @@
 -R . STV
 ClassicUtils.v
 Framework.v
-examples/mincaml/Source.v
+example/Common.v
+example/CaseStudy.v
+example/Src.v
+example/ASrc.v
+example/Trg.v
+example/ATrg.v
+example/TrgAnalysis.v
