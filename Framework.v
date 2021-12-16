@@ -225,7 +225,7 @@ Module Framework (O : Obs).
     }.
 
   (* An analysis may be: *)
-  Definition modular {l l' : language} (α : analysis l l') : Prop := forall C P t, (beh (awhole (C[P] : l)) t) <-> (beh ((actx C) [(apar P)] : l') t).
+  Definition llinear {l l' : language} (α : analysis l l') : Prop := forall C P t, (beh (awhole (C[P] : l)) t) <-> (beh ((actx C) [(apar P)] : l') t).
   Definition sound {l l' : language} (α : analysis l l') : Prop := forall C P t, (beh (C[P] : l) t -> beh (awhole (C[P] : l)) t).
   Definition complete {l l' : language} (α : analysis l l') : Prop := forall C P t, (beh (awhole (C[P] : l)) t -> beh (C[P] : l) t).
 
@@ -248,18 +248,18 @@ Module Framework (O : Obs).
   Theorem aSTV_RSC_then_STV_RSC :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T /\ modular α__S ->
+      (sound α__T /\ complete α__S /\ llinear α__T /\ llinear α__S ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC α__S α__T C__T S T -> STV_RSC C__T S T)).
   Proof.
-    intros src asrc trg atrg α__S α__T [sndα [cmpα [mod__T mod__S]]] C__T S T arsc.
+    intros src asrc trg atrg α__S α__T [sndα [cmpα [lin__T lin__S]]] C__T S T arsc.
     rewrite -> STV_RSC_iff_STV_RSC_bt.
     intros t beh__T m pre.
     specialize (arsc t).
-    rewrite <- (mod__T C__T T t) in arsc.
+    rewrite <- (lin__T C__T T t) in arsc.
     apply sndα in beh__T.
     eapply arsc in beh__T.
     destruct beh__T as [bt abeh__S].
-    rewrite <- (mod__S (bt t C__T) S t) in abeh__S.
+    rewrite <- (lin__S (bt t C__T) S t) in abeh__S.
     apply cmpα in abeh__S.
     exists bt, t.
     split.
@@ -269,7 +269,7 @@ Module Framework (O : Obs).
   Corollary aSTV_RSC_then_STV_RSP :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T /\ modular α__S ->
+      (sound α__T /\ complete α__S /\ llinear α__T /\ llinear α__S ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC α__S α__T C__T S T -> STV_RSP C__T S T)).
   Proof.
     intros src asrc trg atrg α__S α__T H__α C__T S T arsc. apply aSTV_RSC_then_STV_RSC, (STV_RSC_iff_STV_RSP src trg C__T S T) in arsc. all: assumption.
@@ -299,7 +299,7 @@ Module Framework (O : Obs).
   Corollary aSTV_RSC__TI_then_STV_RSC :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T /\ modular α__S ->
+      (sound α__T /\ complete α__S /\ llinear α__T /\ llinear α__S ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC__TI α__S α__T C__T S T -> STV_RSC C__T S T)).
   Proof.
     intros src asrc trg atrg α__S α__T H__α C__T S T H__TI.
@@ -310,7 +310,7 @@ Module Framework (O : Obs).
   Corollary aSTV_RSC__TI_then_STV_RSP :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T /\ modular α__S ->
+      (sound α__T /\ complete α__S /\ llinear α__T /\ llinear α__S ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC__TI α__S α__T C__T S T -> STV_RSP C__T S T)).
   Proof.
     intros src asrc trg atrg α__S α__T H__α C__T S T H__TI.
@@ -338,14 +338,14 @@ Module Framework (O : Obs).
   Theorem aSTV_RSC__WNSA_then_STV_RSC :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T ->
+      (sound α__T /\ complete α__S /\ llinear α__T ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC__WNSA α__S α__T C__T S T -> STV_RSC C__T S T)).
   Proof.
-    intros src asrc trg atrg α__S α__T [sndα [cmpα mod__T]] C__T S T arsc.
+    intros src asrc trg atrg α__S α__T [sndα [cmpα lin__T]] C__T S T arsc.
     rewrite -> STV_RSC_iff_STV_RSC_bt.
     intros t beh__T m pre.
     specialize (arsc t).
-    rewrite <- (mod__T C__T T t) in arsc.
+    rewrite <- (lin__T C__T T t) in arsc.
     apply sndα in beh__T.
     eapply arsc in beh__T.
     destruct beh__T as [bt abeh__S].
@@ -358,7 +358,7 @@ Module Framework (O : Obs).
   Corollary aSTV_RSC__WNSA_then_STV_RSP :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T ->
+      (sound α__T /\ complete α__S /\ llinear α__T ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC__WNSA α__S α__T C__T S T -> STV_RSP C__T S T)).
   Proof.
     intros src asrc trg atrg α__S α__T H__α C__T S T arsc. apply aSTV_RSC__WNSA_then_STV_RSC, (STV_RSC_iff_STV_RSP src trg C__T S T) in arsc. all: assumption.
@@ -384,7 +384,7 @@ Module Framework (O : Obs).
   Corollary aSTV_RSC__TIWNSA_then_STV_RSC :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T ->
+      (sound α__T /\ complete α__S /\ llinear α__T ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC__TIWNSA α__S α__T C__T S T -> STV_RSC C__T S T)).
   Proof.
     intros src asrc trg atrg α__S α__T H__α C__T S T H__TI.
@@ -396,7 +396,7 @@ Module Framework (O : Obs).
   Corollary aSTV_RSC__TIWNSA_then_STV_RSP :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__T ->
+      (sound α__T /\ complete α__S /\ llinear α__T ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC__TIWNSA α__S α__T C__T S T -> STV_RSP C__T S T)).
   Proof.
     intros src asrc trg atrg α__S α__T H__α C__T S T H__TI.
@@ -409,7 +409,7 @@ Module Framework (O : Obs).
   Theorem aSTV_RSC__WNSA_iff_aSTV_RSC :
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg), (* Analyses *)
-      (sound α__T /\ complete α__S /\ modular α__S /\ modular α__T ->
+      (sound α__T /\ complete α__S /\ llinear α__S /\ llinear α__T ->
        (forall (C__T : ctx trg) (S : partial src) (T : partial trg), aSTV_RSC__WNSA α__S α__T C__T S T <-> aSTV_RSC α__S α__T C__T S T)).
   Proof.
     unfold aSTV_RSC__WNSA, aSTV_RSC.
@@ -486,7 +486,7 @@ Module Framework (O : Obs).
     forall (src : language) (asrc : language) (trg : language) (atrg : language) (* Languages used *)
       (α__S : analysis src asrc) (α__T : analysis trg atrg) (* Analyses *)
       (comp : partial src -> partial trg), (* The compiler *)
-      sound α__T /\ complete α__S /\ modular α__T ->
+      sound α__T /\ complete α__S /\ llinear α__T ->
        (forall (pbt : (ctx trg) -> option (ctx src)) (C__T : ctx trg) (S : partial src),
            safe_to_run pbt C__T S (comp S) = (SAFE, None) -> STV_RSP C__T S (comp S)).
   Proof.
